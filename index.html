@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>仕事日記</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4F6AF0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="仕事日記">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+      font-size: 16px;
+      background: #F0F2F8;
+      color: #1A1A2E;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── ヘッダー ── */
+    .app-header {
+      background: #4F6AF0;
+      color: #fff;
+      padding: 14px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 2px 8px rgba(79,106,240,0.3);
+      text-align: center;
+    }
+    .app-header h1 {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* ── タブ ── */
+    .tab-nav {
+      display: flex;
+      background: #fff;
+      border-bottom: 1px solid #E5E7EB;
+      position: sticky;
+      top: 52px;
+      z-index: 19;
+    }
+    .tab-btn {
+      flex: 1;
+      height: 48px;
+      font-size: 15px;
+      font-weight: 600;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      color: #9CA3AF;
+      transition: color 0.2s, border-color 0.2s;
+      font-family: inherit;
+    }
+    .tab-btn.active {
+      color: #4F6AF0;
+      border-bottom-color: #4F6AF0;
+    }
+
+    /* ── タブ内容 ── */
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    .page { padding: 14px 14px 32px; }
+
+    /* ── 日付表示 ── */
+    .date-display {
+      text-align: center;
+      font-size: 13px;
+      color: #6B7280;
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+
+    /* ── カード ── */
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1A1A2E;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 17px;
+      background: #4F6AF0;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* ── タスク入力 ── */
+    .task-input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .task-input {
+      flex: 1;
+      height: 46px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      padding: 0 14px;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      color: #1A1A2E;
+      background: #FAFAFA;
+    }
+    .task-input:focus {
+      border-color: #4F6AF0;
+      background: #fff;
+    }
+    .btn-add {
+      height: 46px;
+      padding: 0 18px;
+      background: #4F6AF0;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-family: inherit;
+    }
+    .btn-add:active { background: #3a55d4; }
+
+    /* ── 進捗バー ── */
+    .progress-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 7px;
+    }
+    .progress-label { font-size: 13px; color: #6B7280; font-weight: 500; }
+    .progress-pct   { font-size: 13px; color: #4F6AF0; font-weight: 700; }
+    .progress-bar-bg {
+      background: #EEF0FB;
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4F6AF0, #7B8FF5);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    /* ── タスクリスト ── */
+    .task-list { list-style: none; }
+    .task-empty {
+      text-align: center;
+      color: #9CA3AF;
+      font-size: 14px;
+      padding: 14px 0 4px;
+    }
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 0;
+      border-top: 1px solid #F3F4F6;
+    }
+    .task-check {
+      width: 24px;
+      height: 24px;
+      accent-color: #22C55E;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .task-text {
+      flex: 1;
+      font-size: 15px;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+    .task-text.done {
+      text-decoration: line-through;
+      color: #9CA3AF;
+    }
+    .btn-del {
+      width: 34px;
+      height: 34px;
+      background: none;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 50%;
+      color: #9CA3AF;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .btn-del:active { background: #FEE2E2; border-color: #FCA5A5; color: #EF4444; }
+
+    /* ── 日記フォーム ── */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+    .form-textarea {
+      width: 100%;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 16px;
+      font-family: inherit;
+      line-height: 1.6;
+      min-height: 88px;
+      resize: vertical;
+      outline: none;
+      background: #FAFAFA;
+      color: #1A1A2E;
+    }
+    .form-textarea:focus {
+      border-color: #4F6AF0;
+      background: #fff;
+    }
+
+    /* ── 達成度ボタン ── */
+    .ach-group {
+      display: flex;
+      gap: 8px;
+    }
+    .ach-btn {
+      flex: 1;
+      height: 46px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      background: #FAFAFA;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #6B7280;
+      transition: all 0.15s;
+      padding: 0 4px;
+      font-family: inherit;
+    }
+    .ach-btn.sel-green  { background: #F0FDF4; border-color: #22C55E; color: #15803D; }
+    .ach-btn.sel-yellow { background: #FFFBEB; border-color: #F59E0B; color: #92400E; }
+    .ach-btn.sel-red    { background: #FEF2F2; border-color: #EF4444; color: #991B1B; }
+
+    /* ── 保存ボタン ── */
+    .btn-save {
+      display: block;
+      width: 100%;
+      height: 52px;
+      background: linear-gradient(135deg, #4F6AF0, #7B8FF5);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      box-shadow: 0 4px 12px rgba(79,106,240,0.35);
+      margin-top: 4px;
+      font-family: inherit;
+    }
+    .btn-save:active { opacity: 0.88; }
+
+    /* ── インストールボタン ── */
+    .btn-install {
+      display: none;
+      width: calc(100% - 28px);
+      margin: 10px 14px 0;
+      height: 46px;
+      background: #fff;
+      color: #4F6AF0;
+      border: 2px solid #4F6AF0;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* ── トースト ── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1A1A2E;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 999;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── 履歴 ── */
+    .history-entry {
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .hist-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .hist-date { font-size: 14px; font-weight: 700; color: #1A1A2E; }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-green  { background: #F0FDF4; color: #15803D; }
+    .badge-yellow { background: #FFFBEB; color: #92400E; }
+    .badge-red    { background: #FEF2F2; color: #991B1B; }
+    .badge-none   { background: #F3F4F6; color: #6B7280; }
+
+    .hist-field { margin-bottom: 10px; }
+    .hist-field:last-child { margin-bottom: 0; }
+    .hist-field-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #9CA3AF;
+      letter-spacing: 0.04em;
+      margin-bottom: 3px;
+    }
+    .hist-field-text {
+      font-size: 14px;
+      color: #374151;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── ページネーション ── */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      padding: 4px 0 8px;
+    }
+    .btn-page {
+      height: 44px;
+      padding: 0 20px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      background: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #374151;
+      font-family: inherit;
+    }
+    .btn-page:disabled { opacity: 0.35; cursor: default; }
+    .page-info { font-size: 14px; color: #6B7280; font-weight: 500; }
+
+    /* ── 空の状態 ── */
+    .empty-state {
+      text-align: center;
+      padding: 52px 0;
+      color: #9CA3AF;
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>仕事日記</h1>
+</header>
+
+<button class="btn-install" id="installBtn" onclick="installApp()">ホーム画面に追加する</button>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab(this,'record')">記録する</button>
+  <button class="tab-btn" onclick="switchTab(this,'history')">履歴</button>
+</nav>
+
+<!-- タブ①：記録する -->
+<div id="pane-record" class="tab-pane active">
+  <div class="page">
+    <div class="date-display" id="dateDisplay"></div>
+
+    <!-- セクションA：今日必ずやること -->
+    <div class="card">
+      <div class="card-title">今日必ずやること</div>
+      <div class="task-input-row">
+        <input type="text" class="task-input" id="taskInput" placeholder="タスクを入力...">
+        <button class="btn-add" onclick="addTask()">追加</button>
+      </div>
+      <div class="progress-row">
+        <span class="progress-label" id="progressLabel">0 / 0 完了</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <ul class="task-list" id="taskList"></ul>
+    </div>
+
+    <!-- セクションB：今日の仕事日記 -->
+    <div class="card">
+      <div class="card-title">今日の仕事日記</div>
+
+      <div class="form-group">
+        <label class="form-label">① 今日の目標</label>
+        <textarea class="form-textarea" id="goalInput" placeholder="今日、何を達成したいですか？" rows="3"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">② 達成できたか</label>
+        <div class="ach-group">
+          <button class="ach-btn" id="achBtn0" onclick="selectAch(0)">達成できた</button>
+          <button class="ach-btn" id="achBtn1" onclick="selectAch(1)">だいたいできた</button>
+          <button class="ach-btn" id="achBtn2" onclick="selectAch(2)">できなかった</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">③ 反省・改善点</label>
+        <textarea class="form-textarea" id="reflectionInput" placeholder="改善できることは何ですか？" rows="3"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">④ 感謝したこと</label>
+        <textarea class="form-textarea" id="gratitudeInput" placeholder="今日、感謝できることは？" rows="3"></textarea>
+      </div>
+
+      <button class="btn-save" onclick="saveDiary()">日記を保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- タブ②：履歴 -->
+<div id="pane-history" class="tab-pane">
+  <div class="page">
+    <div id="histList"></div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TODAY = (() => {
+  const d = new Date();
+  return d.getFullYear() + '-'
+    + String(d.getMonth() + 1).padStart(2, '0') + '-'
+    + String(d.getDate()).padStart(2, '0');
+})();
+
+const ACH_LABELS   = ['達成できた', 'だいたいできた', 'できなかった'];
+const ACH_CLASSES  = ['sel-green', 'sel-yellow', 'sel-red'];
+const BADGE_CLASSES = ['badge-green', 'badge-yellow', 'badge-red'];
+
+let tasks    = [];
+let achIndex = -1;
+let histPage = 0;
+const PER_PAGE = 5;
+
+// ─── 起動 ───────────────────────────────────────────────
+document.getElementById('dateDisplay').textContent = fmtDate(TODAY);
+loadTasks();
+loadDraft();
+registerSW();
+
+document.getElementById('taskInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addTask();
+});
+['goalInput', 'reflectionInput', 'gratitudeInput'].forEach(function(id) {
+  document.getElementById(id).addEventListener('input', saveDraft);
+});
+
+// ─── タブ切替 ─────────────────────────────────────────────
+function switchTab(btn, name) {
+  document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b)  { b.classList.remove('active'); });
+  document.getElementById('pane-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'history') { histPage = 0; renderHistory(); }
+}
+
+// ─── タスク ───────────────────────────────────────────────
+function loadTasks() {
+  tasks = JSON.parse(localStorage.getItem('tasks_' + TODAY) || '[]');
+  renderTasks();
+}
+function saveTasks() {
+  localStorage.setItem('tasks_' + TODAY, JSON.stringify(tasks));
+}
+function addTask() {
+  var inp  = document.getElementById('taskInput');
+  var text = inp.value.trim();
+  if (!text) return;
+  tasks.push({ id: Date.now(), text: text, done: false });
+  inp.value = '';
+  saveTasks();
+  renderTasks();
+}
+function toggleTask(id) {
+  tasks = tasks.map(function(t) {
+    return t.id === id ? { id: t.id, text: t.text, done: !t.done } : t;
+  });
+  saveTasks();
+  renderTasks();
+}
+function deleteTask(id) {
+  tasks = tasks.filter(function(t) { return t.id !== id; });
+  saveTasks();
+  renderTasks();
+}
+function renderTasks() {
+  var done  = tasks.filter(function(t) { return t.done; }).length;
+  var total = tasks.length;
+  var pct   = total > 0 ? Math.round(done / total * 100) : 0;
+
+  document.getElementById('progressLabel').textContent = done + ' / ' + total + ' 完了';
+  document.getElementById('progressPct').textContent   = pct + '%';
+  document.getElementById('progressFill').style.width  = pct + '%';
+
+  var list = document.getElementById('taskList');
+  if (tasks.length === 0) {
+    list.innerHTML = '<li class="task-empty">タスクはまだありません</li>';
+    return;
+  }
+  list.innerHTML = tasks.map(function(t) {
+    return '<li class="task-item">'
+      + '<input type="checkbox" class="task-check"'
+        + (t.done ? ' checked' : '')
+        + ' onchange="toggleTask(' + t.id + ')">'
+      + '<span class="task-text' + (t.done ? ' done' : '') + '">' + esc(t.text) + '</span>'
+      + '<button class="btn-del" onclick="deleteTask(' + t.id + ')">&#215;</button>'
+      + '</li>';
+  }).join('');
+}
+
+// ─── 日記フォーム ─────────────────────────────────────────
+function loadDraft() {
+  var d = JSON.parse(localStorage.getItem('draft_' + TODAY) || '{}');
+  if (!d.goal && d.ach === undefined && !d.reflection && !d.gratitude) {
+    var todayEntry = getEntries().filter(function(e) { return e.date === TODAY; })[0];
+    if (todayEntry) d = todayEntry;
+  }
+  document.getElementById('goalInput').value       = d.goal       || '';
+  document.getElementById('reflectionInput').value = d.reflection || '';
+  document.getElementById('gratitudeInput').value  = d.gratitude  || '';
+  if (typeof d.ach === 'number' && d.ach >= 0) selectAch(d.ach, false);
+}
+function saveDraft() {
+  localStorage.setItem('draft_' + TODAY, JSON.stringify({
+    goal:       document.getElementById('goalInput').value,
+    reflection: document.getElementById('reflectionInput').value,
+    gratitude:  document.getElementById('gratitudeInput').value,
+    ach:        achIndex
+  }));
+}
+function selectAch(i, doSave) {
+  achIndex = i;
+  if (doSave === undefined) doSave = true;
+  document.querySelectorAll('.ach-btn').forEach(function(b, j) {
+    b.className = 'ach-btn' + (j === i ? ' ' + ACH_CLASSES[j] : '');
+  });
+  if (doSave) saveDraft();
+}
+function saveDiary() {
+  var goal       = document.getElementById('goalInput').value.trim();
+  var reflection = document.getElementById('reflectionInput').value.trim();
+  var gratitude  = document.getElementById('gratitudeInput').value.trim();
+
+  if (!goal && achIndex < 0 && !reflection && !gratitude) {
+    showToast('何か入力してから保存してください');
+    return;
+  }
+
+  var entries    = getEntries();
+  var now        = new Date();
+  var todayIdx   = -1;
+  for (var i = 0; i < entries.length; i++) {
+    if (entries[i].date === TODAY) { todayIdx = i; break; }
+  }
+  var entry = {
+    id:         todayIdx >= 0 ? entries[todayIdx].id : now.getTime(),
+    date:       TODAY,
+    time:       String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
+    goal:       goal,
+    ach:        achIndex,
+    reflection: reflection,
+    gratitude:  gratitude
+  };
+  if (todayIdx >= 0) {
+    entries[todayIdx] = entry;
+    showToast('今日の記録を更新しました');
+  } else {
+    entries.unshift(entry);
+    showToast('日記を保存しました');
+  }
+  localStorage.setItem('diary_entries', JSON.stringify(entries));
+  localStorage.removeItem('draft_' + TODAY);
+}
+
+// ─── 履歴 ──────────────────────────────────────────────
+function getEntries() {
+  return JSON.parse(localStorage.getItem('diary_entries') || '[]');
+}
+function renderHistory() {
+  var entries   = getEntries();
+  var container = document.getElementById('histList');
+  var pagEl     = document.getElementById('pagination');
+
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="empty-state">まだ日記がありません</div>';
+    pagEl.innerHTML = '';
+    return;
+  }
+
+  var totalPages = Math.ceil(entries.length / PER_PAGE);
+  if (histPage >= totalPages) histPage = totalPages - 1;
+  var slice = entries.slice(histPage * PER_PAGE, (histPage + 1) * PER_PAGE);
+
+  container.innerHTML = slice.map(function(e) {
+    var achLabel   = e.ach >= 0 ? ACH_LABELS[e.ach]   : null;
+    var badgeClass = e.ach >= 0 ? BADGE_CLASSES[e.ach] : 'badge-none';
+
+    var fields = [
+      { label: '① 今日の目標',   text: e.goal },
+      { label: '③ 反省・改善点', text: e.reflection },
+      { label: '④ 感謝したこと', text: e.gratitude }
+    ].filter(function(f) { return f.text; });
+
+    return '<div class="history-entry">'
+      + '<div class="hist-header">'
+        + '<span class="hist-date">' + fmtDate(e.date) + ' ' + e.time + '</span>'
+        + '<span class="badge ' + badgeClass + '">' + (achLabel || '―') + '</span>'
+      + '</div>'
+      + fields.map(function(f) {
+          return '<div class="hist-field">'
+            + '<div class="hist-field-label">' + f.label + '</div>'
+            + '<div class="hist-field-text">'  + esc(f.text) + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div>';
+  }).join('');
+
+  pagEl.innerHTML = '<button class="btn-page" onclick="changePage(-1)"'
+    + (histPage === 0 ? ' disabled' : '') + '>&#8592; 前へ</button>'
+    + '<span class="page-info">' + (histPage + 1) + ' / ' + totalPages + '</span>'
+    + '<button class="btn-page" onclick="changePage(1)"'
+    + (histPage >= totalPages - 1 ? ' disabled' : '') + '>次へ &#8594;</button>';
+}
+function changePage(d) {
+  histPage += d;
+  renderHistory();
+  window.scrollTo({ top: 0 });
+}
+
+// ─── ユーティリティ ──────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+function fmtDate(dateStr) {
+  var parts = dateStr.split('-').map(Number);
+  var y = parts[0], m = parts[1], d = parts[2];
+  var dow = ['日','月','火','水','木','金','土'][new Date(y, m - 1, d).getDay()];
+  return y + '年' + m + '月' + d + '日（' + dow + '）';
+}
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+function registerSW() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+  }
+}
+
+var installPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  installPrompt = e;
+  document.getElementById('installBtn').style.display = 'block';
+});
+
+function installApp() {
+  if (installPrompt) {
+    installPrompt.prompt();
+    installPrompt.userChoice.then(function() {
+      installPrompt = null;
+      document.getElementById('installBtn').style.display = 'none';
+    });
+  }
+}
+
+window.addEventListener('appinstalled', function() {
+  document.getElementById('installBtn').style.display = 'none';
+});
+</script>
+</body>
+</html>
