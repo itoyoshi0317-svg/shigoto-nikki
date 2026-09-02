@@ -145,6 +145,27 @@
     }
     .btn-add:active { background: #3a55d4; }
 
+    /* ── よく使う項目（プリセット） ── */
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .preset-chip {
+      height: 34px;
+      padding: 0 14px;
+      background: #EEF0FB;
+      color: #4F6AF0;
+      border: none;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .preset-chip:active { background: #DCE1F8; }
+
     /* ── 進捗バー ── */
     .progress-row {
       display: flex;
@@ -425,6 +446,9 @@
         <input type="text" class="task-input" id="taskInput" placeholder="タスクを入力...">
         <button class="btn-add" onclick="addTask()">追加</button>
       </div>
+      <div class="preset-row">
+        <button class="preset-chip" onclick="addPresetTask('バイセップスカール')">＋ バイセップスカール</button>
+      </div>
       <div class="progress-row">
         <span class="progress-label" id="progressLabel">0 / 0 完了</span>
         <span class="progress-pct" id="progressPct">0%</span>
@@ -531,6 +555,11 @@ function addTask() {
   if (!text) return;
   tasks.push({ id: Date.now(), text: text, done: false });
   inp.value = '';
+  saveTasks();
+  renderTasks();
+}
+function addPresetTask(text) {
+  tasks.push({ id: Date.now(), text: text, done: false });
   saveTasks();
   renderTasks();
 }
