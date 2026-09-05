@@ -398,60 +398,6 @@
       color: #9CA3AF;
       font-size: 15px;
     }
-
-    /* ── 納品予定 ── */
-    .delivery-input-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-    .delivery-input {
-      flex: 1 1 140px;
-      height: 46px;
-      border: 1.5px solid #E5E7EB;
-      border-radius: 10px;
-      padding: 0 12px;
-      font-size: 15px;
-      font-family: inherit;
-      outline: none;
-      color: #1A1A2E;
-      background: #FAFAFA;
-    }
-    .delivery-input:focus {
-      border-color: #4F6AF0;
-      background: #fff;
-    }
-    .delivery-input.qty-input { flex: 0 1 70px; }
-    .delivery-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 11px 0;
-      border-top: 1px solid #F3F4F6;
-    }
-    .delivery-check {
-      width: 24px;
-      height: 24px;
-      accent-color: #22C55E;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    .delivery-text {
-      flex: 1;
-      font-size: 15px;
-      line-height: 1.5;
-      word-break: break-all;
-    }
-    .delivery-text.done {
-      text-decoration: line-through;
-      color: #9CA3AF;
-    }
-    .delivery-date {
-      font-weight: 700;
-      color: #4F6AF0;
-      margin-right: 8px;
-    }
   </style>
 </head>
 <body>
@@ -464,7 +410,6 @@
 
 <nav class="tab-nav">
   <button class="tab-btn active" onclick="switchTab(this,'record')">記録する</button>
-  <button class="tab-btn" onclick="switchTab(this,'delivery')">納品予定</button>
   <button class="tab-btn" onclick="switchTab(this,'history')">履歴</button>
 </nav>
 
@@ -523,24 +468,7 @@
   </div>
 </div>
 
-<!-- タブ②：納品予定 -->
-<div id="pane-delivery" class="tab-pane">
-  <div class="page">
-    <div class="card">
-      <div class="card-title">納品予定</div>
-      <div class="delivery-input-row">
-        <input type="date" class="delivery-input" id="deliveryDateInput">
-        <input type="text" class="delivery-input" id="deliveryRecipientInput" placeholder="宛先（例：細野さん）">
-        <input type="text" class="delivery-input" id="deliveryItemInput" placeholder="品目（例：コーヒーキャラメル）">
-        <input type="number" class="delivery-input qty-input" id="deliveryQtyInput" min="1" value="1">
-        <button class="btn-add" onclick="addDelivery()">追加</button>
-      </div>
-      <ul class="task-list" id="deliveryList"></ul>
-    </div>
-  </div>
-</div>
-
-<!-- タブ③：履歴 -->
+<!-- タブ②：履歴 -->
 <div id="pane-history" class="tab-pane">
   <div class="page">
     <div id="histList"></div>
@@ -562,16 +490,14 @@ const ACH_LABELS   = ['達成できた', 'だいたいできた', 'できなか�
 const ACH_CLASSES  = ['sel-green', 'sel-yellow', 'sel-red'];
 const BADGE_CLASSES = ['badge-green', 'badge-yellow', 'badge-red'];
 
-let tasks      = [];
-let deliveries = [];
-let achIndex   = -1;
-let histPage   = 0;
+let tasks    = [];
+let achIndex = -1;
+let histPage = 0;
 const PER_PAGE = 5;
 
 // ─── 起動 ───────────────────────────────────────────────
 document.getElementById('dateDisplay').textContent = fmtDate(TODAY);
 loadTasks();
-loadDeliveries();
 loadDraft();
 registerSW();
 
@@ -643,80 +569,6 @@ function renderTasks() {
       + '<button class="btn-del" onclick="deleteTask(' + t.id + ')">&#215;</button>'
       + '</li>';
   }).join('');
-}
-
-// ─── 納品予定 ─────────────────────────────────────────────
-function loadDeliveries() {
-  var raw = localStorage.getItem('deliveries');
-  if (raw === null) {
-    deliveries = [{ id: Date.now(), date: '2026-10-01', recipient: '細野さん', item: 'コーヒーキャラメル', qty: 1, done: false }];
-    saveDeliveries();
-  } else {
-    deliveries = JSON.parse(raw);
-  }
-  renderDeliveries();
-}
-function saveDeliveries() {
-  localStorage.setItem('deliveries', JSON.stringify(deliveries));
-}
-function addDelivery() {
-  var dateInp = document.getElementById('deliveryDateInput');
-  var recInp  = document.getElementById('deliveryRecipientInput');
-  var itemInp = document.getElementById('deliveryItemInput');
-  var qtyInp  = document.getElementById('deliveryQtyInput');
-  var date      = dateInp.value;
-  var recipient = recInp.value.trim();
-  var item      = itemInp.value.trim();
-  var qty       = parseInt(qtyInp.value, 10) || 1;
-  if (!date || !recipient || !item) {
-    showToast('日付・宛先・品目を入力してください');
-    return;
-  }
-  deliveries.push({ id: Date.now(), date: date, recipient: recipient, item: item, qty: qty, done: false });
-  dateInp.value = '';
-  recInp.value  = '';
-  itemInp.value = '';
-  qtyInp.value  = '1';
-  saveDeliveries();
-  renderDeliveries();
-}
-function toggleDelivery(id) {
-  deliveries = deliveries.map(function(d) {
-    return d.id === id ? { id: d.id, date: d.date, recipient: d.recipient, item: d.item, qty: d.qty, done: !d.done } : d;
-  });
-  saveDeliveries();
-  renderDeliveries();
-}
-function deleteDelivery(id) {
-  deliveries = deliveries.filter(function(d) { return d.id !== id; });
-  saveDeliveries();
-  renderDeliveries();
-}
-function renderDeliveries() {
-  var list = document.getElementById('deliveryList');
-  if (deliveries.length === 0) {
-    list.innerHTML = '<li class="task-empty">納品予定はまだありません</li>';
-    return;
-  }
-  var sorted = deliveries.slice().sort(function(a, b) {
-    return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
-  });
-  list.innerHTML = sorted.map(function(d) {
-    return '<li class="delivery-item">'
-      + '<input type="checkbox" class="delivery-check"'
-        + (d.done ? ' checked' : '')
-        + ' onchange="toggleDelivery(' + d.id + ')">'
-      + '<span class="delivery-text' + (d.done ? ' done' : '') + '">'
-        + '<span class="delivery-date">' + fmtDateShort(d.date) + '</span>'
-        + esc(d.recipient) + '　' + esc(d.item) + ' ×' + d.qty
-      + '</span>'
-      + '<button class="btn-del" onclick="deleteDelivery(' + d.id + ')">&#215;</button>'
-      + '</li>';
-  }).join('');
-}
-function fmtDateShort(dateStr) {
-  var parts = dateStr.split('-').map(Number);
-  return parts[1] + '月' + parts[2] + '日';
 }
 
 // ─── 日記フォーム ─────────────────────────────────────────
