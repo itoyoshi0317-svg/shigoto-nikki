@@ -391,6 +391,31 @@
     .btn-page:disabled { opacity: 0.35; cursor: default; }
     .page-info { font-size: 14px; color: #6B7280; font-weight: 500; }
 
+    /* ── フォーム単体入力 ── */
+    .form-input {
+      width: 100%;
+      height: 46px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      padding: 0 14px;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      color: #1A1A2E;
+      background: #FAFAFA;
+    }
+    .form-input:focus {
+      border-color: #4F6AF0;
+      background: #fff;
+    }
+
+    /* ── ラン目標 ── */
+    .run-goal-text {
+      font-size: 14px;
+      color: #374151;
+      line-height: 1.8;
+    }
+
     /* ── 空の状態 ── */
     .empty-state {
       text-align: center;
@@ -410,6 +435,7 @@
 
 <nav class="tab-nav">
   <button class="tab-btn active" onclick="switchTab(this,'record')">記録する</button>
+  <button class="tab-btn" onclick="switchTab(this,'run')">ラン</button>
   <button class="tab-btn" onclick="switchTab(this,'history')">履歴</button>
 </nav>
 
@@ -468,7 +494,43 @@
   </div>
 </div>
 
-<!-- タブ②：履歴 -->
+<!-- タブ②：ラン -->
+<div id="pane-run" class="tab-pane">
+  <div class="page">
+    <div class="card">
+      <div class="card-title">目標</div>
+      <div class="run-goal-text" id="runGoalInfo"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">ランを記録する</div>
+      <div class="form-group">
+        <label class="form-label">日付</label>
+        <input type="date" class="form-input" id="runDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">距離 (km)</label>
+        <input type="number" step="0.01" min="0" class="form-input" id="runDistance" placeholder="例: 4.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">タイム（分:秒）</label>
+        <input type="text" class="form-input" id="runTime" placeholder="例: 24:18">
+      </div>
+      <div class="form-group">
+        <label class="form-label">メモ（任意）</label>
+        <textarea class="form-textarea" id="runMemo" rows="2" placeholder="ラップや体調など"></textarea>
+      </div>
+      <button class="btn-save" onclick="saveRun()">ランを記録する</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">記録一覧</div>
+      <div id="runList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- タブ③：履歴 -->
 <div id="pane-history" class="tab-pane">
   <div class="page">
     <div id="histList"></div>
@@ -495,10 +557,22 @@ let achIndex = -1;
 let histPage = 0;
 const PER_PAGE = 5;
 
+// ─── ラン目標 ─────────────────────────────────────────────
+const RUN_TARGET_MIN_SEC = 5 * 60;       // 10kmを50分＝ペース5:00/km
+const RUN_TARGET_MAX_SEC = 5 * 60 + 30;  // 10kmを55分＝ペース5:30/km
+const RUN_GOAL_DEADLINE  = new Date(2027, 0, 1); // 目標期限：1〜2月シーズンの起点
+const RUN_SEED = [
+  { id: 1757080000000, date: '2026-09-05', distanceKm: 4.01, timeSec: 1457.7,
+    memo: 'ラップ: 6:09.9 / 6:01.6 / 6:01.5 / 6:02.8（Garminより）' }
+];
+
 // ─── 起動 ───────────────────────────────────────────────
 document.getElementById('dateDisplay').textContent = fmtDate(TODAY);
 loadTasks();
 loadDraft();
+document.getElementById('runDate').value = TODAY;
+renderRunGoal();
+renderRunList();
 registerSW();
 
 document.getElementById('taskInput').addEventListener('keydown', function(e) {
@@ -515,6 +589,7 @@ function switchTab(btn, name) {
   document.getElementById('pane-' + name).classList.add('active');
   btn.classList.add('active');
   if (name === 'history') { histPage = 0; renderHistory(); }
+  if (name === 'run') { renderRunGoal(); renderRunList(); }
 }
 
 // ─── タスク ───────────────────────────────────────────────
@@ -633,6 +708,128 @@ function saveDiary() {
   }
   localStorage.setItem('diary_entries', JSON.stringify(entries));
   localStorage.removeItem('draft_' + TODAY);
+}
+
+// ─── ラン記録 ─────────────────────────────────────────────
+function getRuns() {
+  var raw = localStorage.getItem('run_entries');
+  if (raw === null) {
+    localStorage.setItem('run_entries', JSON.stringify(RUN_SEED));
+    return RUN_SEED.slice();
+  }
+  return JSON.parse(raw);
+}
+function saveRuns(runs) {
+  localStorage.setItem('run_entries', JSON.stringify(runs));
+}
+function parseTimeToSec(str) {
+  var parts = String(str).trim().split(':');
+  if (!parts.length) return null;
+  var nums = parts.map(Number);
+  if (nums.some(function(n) { return isNaN(n); })) return null;
+  var sec = 0;
+  for (var i = 0; i < nums.length; i++) sec = sec * 60 + nums[i];
+  return sec > 0 ? sec : null;
+}
+function formatPace(sec) {
+  var m = Math.floor(sec / 60);
+  var s = Math.round(sec - m * 60);
+  if (s === 60) { m += 1; s = 0; }
+  return m + ':' + String(s).padStart(2, '0');
+}
+function formatDuration(sec) {
+  var m = Math.floor(sec / 60);
+  var s = sec - m * 60;
+  return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+}
+function saveRun() {
+  var dateEl  = document.getElementById('runDate');
+  var distEl  = document.getElementById('runDistance');
+  var timeEl  = document.getElementById('runTime');
+  var memoEl  = document.getElementById('runMemo');
+
+  var date     = dateEl.value || TODAY;
+  var distance = parseFloat(distEl.value);
+  var timeSec  = parseTimeToSec(timeEl.value);
+  var memo     = memoEl.value.trim();
+
+  if (!distance || distance <= 0 || !timeSec) {
+    showToast('距離とタイムを正しく入力してください');
+    return;
+  }
+
+  var runs = getRuns();
+  runs.push({ id: Date.now(), date: date, distanceKm: distance, timeSec: timeSec, memo: memo });
+  saveRuns(runs);
+
+  distEl.value = '';
+  timeEl.value = '';
+  memoEl.value = '';
+  dateEl.value = TODAY;
+
+  renderRunGoal();
+  renderRunList();
+  showToast('ランを記録しました');
+}
+function deleteRun(id) {
+  saveRuns(getRuns().filter(function(r) { return r.id !== id; }));
+  renderRunGoal();
+  renderRunList();
+}
+function renderRunGoal() {
+  var runs = getRuns();
+  var weeksLeft = Math.max(0, Math.ceil((RUN_GOAL_DEADLINE - new Date()) / (7 * 24 * 60 * 60 * 1000)));
+  var html = '🎯 10km を 50〜55分（ペース 5:00〜5:30/km）で走る<br>'
+    + '期限：2027年1月〜2月ごろ（残り約' + weeksLeft + '週間）';
+
+  if (runs.length > 0) {
+    var latest = runs.slice().sort(function(a, b) {
+      return b.date.localeCompare(a.date) || b.id - a.id;
+    })[0];
+    var pace = latest.timeSec / latest.distanceKm;
+    var diff = pace - RUN_TARGET_MAX_SEC;
+    html += '<br>直近ペース：' + formatPace(pace) + '/km';
+    html += diff > 0
+      ? '（目標まであと ' + formatPace(diff) + '/km 短縮）'
+      : '（目標ペース達成中！）';
+  }
+  document.getElementById('runGoalInfo').innerHTML = html;
+}
+function renderRunList() {
+  var runs = getRuns().slice().sort(function(a, b) {
+    return b.date.localeCompare(a.date) || b.id - a.id;
+  });
+  var container = document.getElementById('runList');
+
+  if (runs.length === 0) {
+    container.innerHTML = '<div class="task-empty">記録はまだありません</div>';
+    return;
+  }
+
+  container.innerHTML = runs.map(function(r) {
+    var pace = r.timeSec / r.distanceKm;
+    var badgeClass, statusLabel;
+    if (pace <= RUN_TARGET_MAX_SEC)        { badgeClass = 'badge-green';  statusLabel = '目標達成'; }
+    else if (pace <= RUN_TARGET_MAX_SEC + 30) { badgeClass = 'badge-yellow'; statusLabel = 'あと少し'; }
+    else                                     { badgeClass = 'badge-red';    statusLabel = '要強化'; }
+
+    return '<div class="history-entry">'
+      + '<div class="hist-header">'
+        + '<span class="hist-date">' + fmtDate(r.date) + '</span>'
+        + '<span class="badge ' + badgeClass + '">' + statusLabel + '</span>'
+      + '</div>'
+      + '<div class="hist-field">'
+        + '<div class="hist-field-label">距離 ／ タイム ／ ペース</div>'
+        + '<div class="hist-field-text">' + r.distanceKm.toFixed(2) + ' km ／ '
+          + formatDuration(r.timeSec) + ' ／ ' + formatPace(pace) + ' /km</div>'
+      + '</div>'
+      + (r.memo
+          ? '<div class="hist-field"><div class="hist-field-label">メモ</div>'
+            + '<div class="hist-field-text">' + esc(r.memo) + '</div></div>'
+          : '')
+      + '<button class="btn-del" style="margin-top:8px;" onclick="deleteRun(' + r.id + ')">&#215;</button>'
+      + '</div>';
+  }).join('');
 }
 
 // ─── 履歴 ──────────────────────────────────────────────
