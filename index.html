@@ -398,6 +398,73 @@
       color: #9CA3AF;
       font-size: 15px;
     }
+
+    /* ── メルカリ売上 ── */
+    .sale-input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .sale-input-row .task-input.name { flex: 3; }
+    .sale-input-row .task-input.price { flex: 2; }
+    .sale-list { list-style: none; margin-bottom: 14px; }
+    .sale-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 0;
+      border-top: 1px solid #F3F4F6;
+    }
+    .sale-name {
+      flex: 1;
+      font-size: 15px;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+    .sale-price {
+      font-size: 15px;
+      font-weight: 700;
+      color: #4F6AF0;
+      white-space: nowrap;
+    }
+    .sale-total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0 4px;
+      border-top: 1.5px solid #E5E7EB;
+      margin-bottom: 14px;
+    }
+    .sale-total-label { font-size: 14px; font-weight: 700; color: #374151; }
+    .sale-total-amount { font-size: 18px; font-weight: 700; color: #4F6AF0; }
+    .btn-copy {
+      display: block;
+      width: 100%;
+      height: 52px;
+      background: linear-gradient(135deg, #4F6AF0, #7B8FF5);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      box-shadow: 0 4px 12px rgba(79,106,240,0.35);
+      font-family: inherit;
+    }
+    .btn-copy:active { opacity: 0.88; }
+    .summary-box {
+      background: #FAFAFA;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #374151;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-bottom: 14px;
+    }
   </style>
 </head>
 <body>
@@ -410,6 +477,7 @@
 
 <nav class="tab-nav">
   <button class="tab-btn active" onclick="switchTab(this,'record')">記録する</button>
+  <button class="tab-btn" onclick="switchTab(this,'mercari')">メルカリ</button>
   <button class="tab-btn" onclick="switchTab(this,'history')">履歴</button>
 </nav>
 
@@ -468,7 +536,31 @@
   </div>
 </div>
 
-<!-- タブ②：履歴 -->
+<!-- タブ②：メルカリ売上 -->
+<div id="pane-mercari" class="tab-pane">
+  <div class="page">
+    <div class="card">
+      <div class="card-title">メルカリ売上を記録</div>
+      <div class="sale-input-row">
+        <input type="text" class="task-input name" id="saleNameInput" placeholder="商品名">
+        <input type="number" class="task-input price" id="salePriceInput" placeholder="価格" inputmode="numeric">
+      </div>
+      <button class="btn-add" style="width:100%;margin-bottom:14px;" onclick="addSale()">追加</button>
+
+      <ul class="sale-list" id="saleList"></ul>
+
+      <div class="sale-total-row">
+        <span class="sale-total-label" id="saleTotalLabel">合計 0件</span>
+        <span class="sale-total-amount" id="saleTotalAmount">¥0</span>
+      </div>
+
+      <div class="summary-box" id="saleSummaryBox"></div>
+      <button class="btn-copy" onclick="copySaleSummary()">コンパクトにコピーする</button>
+    </div>
+  </div>
+</div>
+
+<!-- タブ③：履歴 -->
 <div id="pane-history" class="tab-pane">
   <div class="page">
     <div id="histList"></div>
@@ -494,15 +586,22 @@ let tasks    = [];
 let achIndex = -1;
 let histPage = 0;
 const PER_PAGE = 5;
+let sales = [];
 
 // ─── 起動 ───────────────────────────────────────────────
 document.getElementById('dateDisplay').textContent = fmtDate(TODAY);
 loadTasks();
 loadDraft();
+loadSales();
 registerSW();
 
 document.getElementById('taskInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') addTask();
+});
+['saleNameInput', 'salePriceInput'].forEach(function(id) {
+  document.getElementById(id).addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') addSale();
+  });
 });
 ['goalInput', 'reflectionInput', 'gratitudeInput'].forEach(function(id) {
   document.getElementById(id).addEventListener('input', saveDraft);
@@ -515,6 +614,74 @@ function switchTab(btn, name) {
   document.getElementById('pane-' + name).classList.add('active');
   btn.classList.add('active');
   if (name === 'history') { histPage = 0; renderHistory(); }
+}
+
+// ─── メルカリ売上 ───────────────────────────────────────
+function loadSales() {
+  sales = JSON.parse(localStorage.getItem('mercari_sales') || '[]');
+  renderSales();
+}
+function saveSales() {
+  localStorage.setItem('mercari_sales', JSON.stringify(sales));
+}
+function addSale() {
+  var nameInp  = document.getElementById('saleNameInput');
+  var priceInp = document.getElementById('salePriceInput');
+  var name  = nameInp.value.trim();
+  var price = parseInt(priceInp.value, 10);
+  if (!name || isNaN(price)) return;
+  sales.unshift({ id: Date.now(), date: TODAY, name: name, price: price });
+  nameInp.value  = '';
+  priceInp.value = '';
+  saveSales();
+  renderSales();
+}
+function deleteSale(id) {
+  sales = sales.filter(function(s) { return s.id !== id; });
+  saveSales();
+  renderSales();
+}
+function renderSales() {
+  var list  = document.getElementById('saleList');
+  var total = sales.reduce(function(sum, s) { return sum + s.price; }, 0);
+
+  if (sales.length === 0) {
+    list.innerHTML = '<li class="task-empty">売上はまだありません</li>';
+  } else {
+    list.innerHTML = sales.map(function(s) {
+      return '<li class="sale-item">'
+        + '<span class="sale-name">' + esc(s.name) + '</span>'
+        + '<span class="sale-price">&#165;' + s.price.toLocaleString() + '</span>'
+        + '<button class="btn-del" onclick="deleteSale(' + s.id + ')">&#215;</button>'
+        + '</li>';
+    }).join('');
+  }
+
+  document.getElementById('saleTotalLabel').textContent  = '合計 ' + sales.length + '件';
+  document.getElementById('saleTotalAmount').textContent = '¥' + total.toLocaleString();
+  document.getElementById('saleSummaryBox').textContent  = buildSaleSummary();
+}
+function buildSaleSummary() {
+  if (sales.length === 0) return 'まだ売上がありません';
+  var total = sales.reduce(function(sum, s) { return sum + s.price; }, 0);
+  var lines = ['【メルカリ売上】' + fmtDate(TODAY)];
+  sales.forEach(function(s) {
+    lines.push('・' + s.name + ' ¥' + s.price.toLocaleString());
+  });
+  lines.push('合計 ¥' + total.toLocaleString() + '（' + sales.length + '件）');
+  return lines.join('\n');
+}
+function copySaleSummary() {
+  var text = buildSaleSummary();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      showToast('コピーしました');
+    }).catch(function() {
+      showToast('コピーに失敗しました');
+    });
+  } else {
+    showToast('コピーに失敗しました');
+  }
 }
 
 // ─── タスク ───────────────────────────────────────────────
