@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workdiary-v2';
+const CACHE_NAME = 'workdiary-v3';
 const CACHE_URLS = ['/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', function(e) {
